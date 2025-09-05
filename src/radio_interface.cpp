@@ -6,7 +6,7 @@
 // DIO0 pin:  2
 // RESET pin: 9
 // DIO1 pin:  3
-static RFM98 radio = new Module(10, 2, 9, 3); 
+static RFM98 radio = new Module(RADIO_RFM_NSS_PIN, RADIO_RFM_DIO0_PIN, RADIO_RFM_NRST_PIN, RADIO_RFM_DIO1_PIN); 
 static int res = RADIOLIB_ERR_NONE; 
 
 // flags 
@@ -70,7 +70,7 @@ bool transmit_timeout(){
 
 // operations 
 void initRadio(){
-  res = radio.begin(434.0, 125.0, 9, 7, 18, 10, 8, 0); 
+  res = radio.begin(RADIO_FREQ, RADIO_BW_FAST, RADIO_SF_FAST, RADIO_CR_FAST, RADIO_SYNC_WORD, RADIO_TRANSMIT_POWER, RADIO_PREAMBLE_LEN, RADIO_RFM_GAIN);
 
   if(res != RADIOLIB_ERR_NONE){
     Serial.print(F("radio.begin failed, code "));
