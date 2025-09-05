@@ -1,121 +1,109 @@
-// based on channel activity detection interrupt example
-// include the library
+
+#include "Arduino.h"
 #include <RadioLib.h>
+#include "radio_interface.h"
 
-// SX1278 has the following connections:
-// NSS pin:   10
-// DIO0 pin:  2
-// RESET pin: 9
-// DIO1 pin:  3
-RFM98 radio = new Module(10, 2, 9, 3);
+// states
+typedef enum {
+  IDLE,
+  DETECTING, 
+  DECODE, 
+  TRANSMITTING,
+  ADAPT,
+  RECEIVING,
+  FORWARD
+} state_t; 
 
-// flag to indicate that a preamble was not detected
-volatile bool timeoutFlag = false;
 
-// flag to indicate that a preamble was detected
-volatile bool detectedFlag = false;
 
-bool receiving = false;
+state_t state = IDLE; 
+int res = 0;  
 
-void setFlagTimeout(void) {
-  // we timed out, set the flag
-  timeoutFlag = true;
-}
+int radio_init(){}
 
-void setFlagDetected(void) {
-  // we got a preamble, set the flag
-  detectedFlag = true;
-}
-
-void setup() {
-  Serial.begin(115200);
-  while (!Serial)
+void setup(){
+  // the init state
+  Serial.begin(115200); 
+  while(!Serial)
     ;
-//  Serial.println("Starting...");
 
-  int state = radio.begin();
-  if (state == RADIOLIB_ERR_NONE) {
-    //    Serial.println(F("success!"));
-  } else {
-    Serial.print(F("failed, code "));
-    Serial.println(state);
-    while (true)
-      ;
+  res = radio_init(); 
+
+  // check for errors
+  if(state != RADIOLIB_ERR_NONE){
+    Serial.print("Initialization Error: "); Serial.println(state); 
   }
 
-  // set the function that will be called
-  // when LoRa preamble is not detected within CAD timeout period
-  radio.setDio0Action(setFlagTimeout, RISING);
+  // start scanning 
 
-  // set the function that will be called
-  // when LoRa preamble is detected
-  radio.setDio1Action(setFlagDetected, RISING);
-
-  state = radio.startChannelScan();
-  if (state != RADIOLIB_ERR_NONE) {
-    Serial.print("Error: ");
-    Serial.println(state);
-  }
-//  Serial.println("Setup /done");
 }
 
-void loop() {
-  // if we're not receiving, and there are bytes to send 
-  if(!receiving && Serial.available() > 0){
-    // arbitrary large buffer
-    uint8_t buf[1000];
-    size_t len = 0; 
-    // while there are still bytes to send
-    while(Serial.available() > 0){
-      // read them into the buffer
-      buf[len++] = Serial.read(); 
-    }
-    // transmit the entire buffer
-    radio.transmit(buf, len); 
+void loop(){
+  state_t next_state = state; 
+
+  switch(state){
+    
+    case IDLE:
+      if(serial_input()){
+        next_state = DECODE; 
+      } else {
+        startActivityDetection(); 
+        next_state = DETECTING; 
+      }
+      break;
+
+    case DETECTING:
+      if(scan_timeout()){
+        next_state = IDLE; 
+      } else if(activity_detected()){
+        startReceive(); 
+        next_state = RECEIVING; 
+      }
+      break; 
+
+    case RECEIVING:
+      if(receive_done()){
+        next_state = FORWARD; 
+      } else if(receive_timeout()){
+        next_state = IDLE; 
+      } else {
+        next_state = RECEIVING; 
+      }
+      break;
+
+    case FORWARD:
+      receiveAndForward(); 
+      next_state = IDLE;       
+      break; 
+
+    case DECODE:
+      decodeAndTransmit(); 
+      next_state = TRANSMITTING; 
+      break;
+
+    case TRANSMITTING:
+      if(transmit_done()){
+        transmitCleanUp(); 
+        next_state = ADAPT; 
+      } else if(transmit_timeout()){
+        transmitCleanUp(); 
+        next_state = IDLE; 
+      } else {
+        next_state = TRANSMITTING; 
+      }
+      break;
+
+    case ADAPT:
+      adaptRadio(); 
+      next_state = IDLE; 
+      break;
+    
+    default:
+      Serial.print("Bad state: "); Serial.println(state); 
+      break; 
+
   }
 
-  if (detectedFlag || timeoutFlag) {
-    if (receiving) {
-      // reset flags
-      timeoutFlag = false;
-      detectedFlag = false;
+  state = next_state; 
 
-      size_t len = radio.getPacketLength();
-      uint8_t buf[len];
-      int state = radio.readData(buf, len);
-
-      if (state == RADIOLIB_ERR_NONE) {
-        Serial.write(buf, len);
-      } else {
-//        Serial.print("Error on receive: ");
-//        Serial.println(state);
-      }
-
-      receiving = false;
-    }
-
-    // check if we got a preamble
-    if (detectedFlag) {
-      // LoRa preamble was detected
-      //      Serial.println(F("[SX1278] Preamble detected!"));
-      radio.startReceive(0, RADIOLIB_SX127X_RXSINGLE);
-
-      receiving = true;
-    }
-
-    if (!receiving) {
-      // start scanning current channel
-      int state = radio.startChannelScan();
-      if (state == RADIOLIB_ERR_NONE) {
-        //      Serial.println(F("success!"));
-      } else {
-//        Serial.print(F("failed, code "));
-//        Serial.println(state);
-      }
-    }
-
-    // reset flags
-    timeoutFlag = false;
-    detectedFlag = false;
-  }
 }
