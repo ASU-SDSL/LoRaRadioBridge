@@ -1,11 +1,42 @@
+/**
+ * @file radio_interface.cpp
+ * @author Tyler Nielsen
+ * @brief Implementation of the radio_interface.h functions for the RFM98PW
+ * @version 0.1
+ * @date 2025-09-04
+ * 
+ * @copyright Copyright (c) 2025
+ * 
+ */
 #include "radio_interface.h"
 #include <RadioLib.h>
 
-// implementation for RFM98
-// NSS pin:   10
-// DIO0 pin:  2
-// RESET pin: 9
-// DIO1 pin:  3
+// constants and settings
+// RFM pinout
+#define RADIO_RFM_NSS_PIN 10
+#define RADIO_RFM_DIO0_PIN 2
+#define RADIO_RFM_NRST_PIN 9
+#define RADIO_RFM_DIO1_PIN 3
+
+// Consistent radio settings: 
+#define RADIO_FREQ 434.0
+#define RADIO_SYNC_WORD 18
+#define RADIO_PREAMBLE_LEN 8
+#define RADIO_RFM_GAIN 0      // (auto)
+#define RADIO_TRANSMIT_POWER 21
+
+// LoRa Modes:
+// fast mode (~4 kbps)
+#define RADIO_BW_FAST 62.5
+#define RADIO_SF_FAST 6
+#define RADIO_CR_FAST 5
+
+// safe mode (~400 bps)
+#define RADIO_BW_SAFE 62.5
+#define RADIO_SF_SAFE 10
+#define RADIO_CR_SAFE 5
+
+// shared variables 
 static RFM98 radio = new Module(RADIO_RFM_NSS_PIN, RADIO_RFM_DIO0_PIN, RADIO_RFM_NRST_PIN, RADIO_RFM_DIO1_PIN); 
 static int res = RADIOLIB_ERR_NONE; 
 
