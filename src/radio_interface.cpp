@@ -38,10 +38,22 @@
 #define RADIO_SF_SAFE 10
 #define RADIO_CR_SAFE 5
 
+// Mode setting in command packet 
+#define RADIO_SAFE_MODE 0
+#define RADIO_FAST_MODE 1
+
 // shared variables
 static RFM98 radio = new Module(RADIO_RFM_NSS_PIN, RADIO_RFM_DIO0_PIN,
                                 RADIO_RFM_NRST_PIN, RADIO_RFM_DIO1_PIN);
 static int res = RADIOLIB_ERR_NONE;
+
+// radio begin modes 
+static int radio_begin_safe(){
+  return radio.begin(RADIO_FREQ, RADIO_BW_SAFE, RADIO_SF_SAFE, RADIO_CR_SAFE, RADIO_SYNC_WORD, RADIO_TRANSMIT_POWER, RADIO_PREAMBLE_LEN, RADIO_RFM_GAIN);
+}
+static int radio_begin_fast(){
+  return radio.begin(RADIO_FREQ, RADIO_BW_FAST, RADIO_SF_FAST, RADIO_CR_FAST, RADIO_SYNC_WORD, RADIO_TRANSMIT_POWER, RADIO_PREAMBLE_LEN, RADIO_RFM_GAIN);
+}
 
 // flags
 static volatile bool operation_done_flag = false;
@@ -86,9 +98,7 @@ bool transmit_timeout() { return false; }
 
 // operations
 void initRadio() {
-  res = radio.begin(RADIO_FREQ, RADIO_BW_FAST, RADIO_SF_FAST, RADIO_CR_FAST,
-                    RADIO_SYNC_WORD, RADIO_TRANSMIT_POWER, RADIO_PREAMBLE_LEN,
-                    RADIO_RFM_GAIN);
+  res = radio_begin_safe(); 
 
   if (res != RADIOLIB_ERR_NONE) {
     Serial.print(F("radio.begin failed, code "));
@@ -214,8 +224,25 @@ void transmitCleanUp() {
   radio.finishTransmit();
 }
 
+#define  RADIO_SET_MODE 103 
+#define TOKEN_LENGTH 8U
+typedef struct __attribute__((__packed__)) {
+    uint8_t admin_token[TOKEN_LENGTH];
+    uint8_t radio_mode; 
+} radio_set_mode_t; 
+
 void adaptRadio() {
   // use with decode
+  if(header.apid == RADIO_SET_MODE){
+    uint8_t* buf = packet + ((sizeof(COMMAND_SYNC_BYTES) - 1) + SPACEPACKET_ENCODED_HEADER_SIZE); 
+    radio_set_mode_t* set_mode_args = (radio_set_mode_t*) buf;
+    
+    if(set_mode_args->radio_mode == RADIO_FAST_MODE){
+      radio_begin_fast(); 
+    } else {
+      radio_begin_safe(); 
+    }
+  }
 
   // clean up from decode at the end
   free(packet); 
