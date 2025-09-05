@@ -25,6 +25,7 @@
 #define RADIO_PREAMBLE_LEN 8
 #define RADIO_RFM_GAIN 0  // (auto)
 #define RADIO_TRANSMIT_POWER 21
+#define COMMAND_SYNC_BYTES "\x35\x2E\xF8\x53" 
 
 // LoRa Modes:
 // fast mode (~4 kbps)
@@ -129,18 +130,83 @@ void receiveAndForward() {
   }
 }
 
-void decodeAndTransmit() {
-  // decode - TODO: make this smarter
-  uint8_t buf[256];
-  size_t len = 0;
+#define SPACEPACKET_ENCODED_HEADER_SIZE 6
 
-  // while there are still bytes to send
-  while (Serial.available() > 0 && len < 256) {
-    // read them into the buffer
-    buf[len++] = Serial.read();
+struct spacepacket_header {
+    uint8_t version;
+    bool type;
+    bool secondary_header_flag;
+    uint16_t apid;
+    uint8_t sequence_flag;
+    uint16_t packet_sequence_count;
+    uint16_t packet_length;
+} typedef spacepacket_header_t;
+
+/* 
+    Decodes a byte buffer into a SpacePacket header struct
+    Argument encoded_buf must be at least 6 bytes large
+    Returns 0 on success, -1 on error
+ */
+static int decode_spacepacket_header(uint8_t* encoded_buf, size_t encoded_buf_size, spacepacket_header_t *header_out) {
+    // Sanity checks
+    if (encoded_buf == NULL || header_out == NULL || encoded_buf_size < SPACEPACKET_ENCODED_HEADER_SIZE) {
+        return -1;
+    }
+    // Decode header
+    header_out->version = (encoded_buf[0] >> 5) & 0x07;
+    header_out->type = (encoded_buf[0] >> 4) & 0x01;
+    header_out->secondary_header_flag = (encoded_buf[0] >> 3) & 0x01;
+    header_out->apid = ((encoded_buf[0] & 0x07) << 8) | encoded_buf[1];
+    header_out->sequence_flag = (encoded_buf[2] >> 6) & 0x01;
+    header_out->packet_sequence_count = ((encoded_buf[2] & 0x3F) << 8) | encoded_buf[3];
+    header_out->packet_length = (encoded_buf[4] << 8) | encoded_buf[5];
+    return 0;
+}
+
+static spacepacket_header_t header; 
+static uint8_t* packet; 
+void decodeAndTransmit() {
+  // decode - receive a packet - TODO: make this smarter
+
+  packet = (uint8_t*) malloc(sizeof(uint8_t) * (4 + 6)); 
+  uint8_t index = 0;  
+
+  // find sync bytes 
+  while(true){
+    uint8_t byte_in = Serial.read(); 
+
+    if(byte_in == COMMAND_SYNC_BYTES[index]){
+      packet[index] = byte_in; 
+      index++;
+    } else {
+      index = 0; 
+    }
+
+    if(index >= (sizeof(COMMAND_SYNC_BYTES) - 2)){ // - 2 for \0 and counting 
+      break; 
+    }
+
   }
+
+  // receive spacepacket header (6 bytes)
+  for(int i = 0; i < SPACEPACKET_ENCODED_HEADER_SIZE; i++){
+    packet[index] = Serial.read(); 
+    index++; 
+  }
+
+  decode_spacepacket_header(packet + 4, SPACEPACKET_ENCODED_HEADER_SIZE, &header); 
+  size_t full_len = header.packet_length + (sizeof(COMMAND_SYNC_BYTES) - 1) + SPACEPACKET_ENCODED_HEADER_SIZE; 
+
+  // receive the rest of the packet 
+  packet = (uint8_t*) realloc(packet, full_len); 
+
+  while(index < full_len){
+    packet[index] = Serial.read(); 
+    index++; 
+  }
+
   // transmit the entire buffer
-  radio.startTransmit(buf, len);
+  radio.startTransmit(packet, full_len);
 }
 
 void transmitCleanUp() {
@@ -150,4 +216,7 @@ void transmitCleanUp() {
 
 void adaptRadio() {
   // use with decode
+
+  // clean up from decode at the end
+  free(packet); 
 }
