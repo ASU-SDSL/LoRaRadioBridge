@@ -14,6 +14,7 @@ bool receive_timeout();
 bool transmit_timeout(); 
 
 // operations 
+void initRadio(); 
 void startActivityDetection(); 
 void startReceive(); 
 void receiveAndForward(); 

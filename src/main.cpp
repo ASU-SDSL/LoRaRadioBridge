@@ -4,7 +4,7 @@
 #include "radio_interface.h"
 
 // states
-typedef enum {
+typedef enum : uint8_t {
   IDLE,
   DETECTING, 
   DECODE, 
@@ -12,14 +12,11 @@ typedef enum {
   ADAPT,
   RECEIVING,
   FORWARD
-} state_t; 
+} sm_t; 
 
-
-
-state_t state = IDLE; 
+sm_t state = IDLE; 
 int res = 0;  
 
-int radio_init(){}
 
 void setup(){
   // the init state
@@ -27,19 +24,11 @@ void setup(){
   while(!Serial)
     ;
 
-  res = radio_init(); 
-
-  // check for errors
-  if(state != RADIOLIB_ERR_NONE){
-    Serial.print("Initialization Error: "); Serial.println(state); 
-  }
-
-  // start scanning 
-
+  initRadio(); 
 }
 
 void loop(){
-  state_t next_state = state; 
+  sm_t next_state = state; 
 
   switch(state){
     
