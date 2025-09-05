@@ -29,8 +29,7 @@ void setFlagDetected(void) {
 
 void setup() {
   Serial.begin(115200);
-  while (!Serial)
-    ;
+  while (!Serial);
 
   int state = radio.begin();
   if (state == RADIOLIB_ERR_NONE) {
@@ -38,8 +37,7 @@ void setup() {
   } else {
     Serial.print(F("failed, code "));
     Serial.println(state);
-    while (true)
-      ;
+    while (true);
   }
 
   // set the function that will be called
@@ -55,22 +53,22 @@ void setup() {
     Serial.print("Error: ");
     Serial.println(state);
   }
-//  Serial.println("Setup /done");
+  //  Serial.println("Setup /done");
 }
 
 void loop() {
-  // if we're not receiving, and there are bytes to send 
-  if(!receiving && Serial.available() > 0){
+  // if we're not receiving, and there are bytes to send
+  if (!receiving && Serial.available() > 0) {
     // large buffer - radio's buffer
     uint8_t buf[256];
-    size_t len = 0; 
+    size_t len = 0;
     // while there are still bytes to send
-    while(Serial.available() > 0 && len < 256){
+    while (Serial.available() > 0 && len < 256) {
       // read them into the buffer
-      buf[len++] = Serial.read(); 
+      buf[len++] = Serial.read();
     }
     // transmit the entire buffer
-    radio.transmit(buf, len); 
+    radio.transmit(buf, len);
   }
 
   if (detectedFlag || timeoutFlag) {
@@ -86,8 +84,8 @@ void loop() {
       if (state == RADIOLIB_ERR_NONE) {
         Serial.write(buf, len);
       } else {
-//        Serial.print("Error on receive: ");
-//        Serial.println(state);
+        //        Serial.print("Error on receive: ");
+        //        Serial.println(state);
       }
 
       receiving = false;
@@ -108,8 +106,8 @@ void loop() {
       if (state == RADIOLIB_ERR_NONE) {
         //      Serial.println(F("success!"));
       } else {
-//        Serial.print(F("failed, code "));
-//        Serial.println(state);
+        //        Serial.print(F("failed, code "));
+        //        Serial.println(state);
       }
     }
 
