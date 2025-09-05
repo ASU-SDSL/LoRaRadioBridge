@@ -14,10 +14,10 @@ static volatile bool operation_done_flag = false;
 static volatile bool detected_flag = false; 
 
 // isrs 
-void raiseOperationDoneFlag(){
+static void raiseOperationDoneFlag(){
   operation_done_flag = true; 
 }
-bool popOperationDoneFlag(){
+static bool popOperationDoneFlag(){
   if(operation_done_flag){
     operation_done_flag = false;
     return true; 
@@ -26,10 +26,10 @@ bool popOperationDoneFlag(){
   }
 }
 
-void raiseDetectedFlag(){
+static void raiseDetectedFlag(){
   detected_flag = true; 
 }
-bool popDetectedFlag(){
+static bool popDetectedFlag(){
   if(detected_flag){
     detected_flag = false; 
     return true; 
