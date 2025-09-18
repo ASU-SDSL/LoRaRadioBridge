@@ -25,7 +25,8 @@
 #define RADIO_SYNC_WORD 18
 #define RADIO_PREAMBLE_LEN 8
 #define RADIO_RFM_GAIN 0  // (auto)
-#define RADIO_TRANSMIT_POWER 21
+// update with 1W macro if needed (that may be a bs number bc RabioLib implements the base module not the 1W version)
+#define RADIO_TRANSMIT_POWER 10
 
 // LoRa Modes:
 // fast mode (~4 kbps)
