@@ -11,6 +11,7 @@
 #include "radio_interface.h"
 
 #include <RadioLib.h>
+#include <vector>
 
 // constants and settings
 // RFM pinout
@@ -121,11 +122,11 @@ void startReceive() {
 
 void receiveAndForward() {
   size_t len = radio.getPacketLength();
-  uint8_t buf[len];
-  res = radio.readData(buf, len);
+  std::vector<uint8_t> buf(len);
+  res = radio.readData(buf.data(), len);
 
   if (res == RADIOLIB_ERR_NONE) {
-    Serial.write(buf, len);
+    Serial.write(buf.data(), len);
   }
 }
 
