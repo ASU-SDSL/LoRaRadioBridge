@@ -5,7 +5,10 @@
 #include "radio_interface.h"
 
 #define DEBUG 1
-#define debug_println(x) if (DEBUG) { Serial.println(x); }
+#define debug_println(x) \
+  if (DEBUG) {           \
+    Serial.println(x);   \
+  }
 
 // states
 typedef enum : uint8_t {
@@ -24,7 +27,8 @@ int res = 0;
 void setup() {
   // the init state
   Serial.begin(115200);
-  while (!Serial);
+  while (!Serial)
+    ;
 
   initRadio();
 }

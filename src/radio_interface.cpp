@@ -11,6 +11,7 @@
 #include "radio_interface.h"
 
 #include <RadioLib.h>
+
 #include <vector>
 
 // constants and settings
@@ -25,8 +26,12 @@
 #define RADIO_SYNC_WORD 18
 #define RADIO_PREAMBLE_LEN 8
 #define RADIO_RFM_GAIN 0  // (auto)
-// update with 1W macro if needed (that may be a bs number bc RabioLib implements the base module not the 1W version)
+// update with 1W macro if needed (that may be a bs number bc RabioLib
+// implements the base module not the 1W version)
 #define RADIO_TRANSMIT_POWER 10
+
+#define TRANSMIT_TIMEOUT_US (1000 * 1000)  // timeout after 1s (1,000,000 us)
+#define RECEIVE_TIMEOUT_US (1000 * 1000)   // timeout after 1s (1,000,000 us)
 
 // LoRa Modes:
 // fast mode (~4 kbps)
@@ -43,6 +48,10 @@
 static RFM98 radio = new Module(RADIO_RFM_NSS_PIN, RADIO_RFM_DIO0_PIN,
                                 RADIO_RFM_NRST_PIN, RADIO_RFM_DIO1_PIN);
 static int res = RADIOLIB_ERR_NONE;
+static uint64_t timestamp = 0;
+
+// timing
+static uint64_t now() { return to_us_since_boot(get_absolute_time()); }
 
 // flags
 static volatile bool operation_done_flag = false;
@@ -81,9 +90,9 @@ bool receive_done() { return popOperationDoneFlag(); }
 
 bool transmit_done() { return popOperationDoneFlag(); }
 
-bool receive_timeout() { return false; }
+bool receive_timeout() { return now() - timestamp > RECEIVE_TIMEOUT_US; }
 
-bool transmit_timeout() { return false; }
+bool transmit_timeout() { return now() - timestamp > TRANSMIT_TIMEOUT_US; }
 
 // operations
 void initRadio() {
@@ -94,7 +103,8 @@ void initRadio() {
   if (res != RADIOLIB_ERR_NONE) {
     Serial.print(F("radio.begin failed, code "));
     Serial.println(res);
-    while (true);
+    while (true)
+      ;
   }
 
   radio.setDio0Action(raiseOperationDoneFlag, RISING);
@@ -107,7 +117,8 @@ void startActivityDetection() {
   if (res != RADIOLIB_ERR_NONE) {
     Serial.print(F("radio.startChannelScan failed, code "));
     Serial.println(res);
-    while (true);
+    while (true)
+      ;
   }
 }
 
@@ -117,8 +128,12 @@ void startReceive() {
   if (res != RADIOLIB_ERR_NONE) {
     Serial.print(F("radio.startReceive failed, code "));
     Serial.println(res);
-    while (true);
+    while (true)
+      ;
   }
+
+  // start timeout timer
+  timestamp = now();
 }
 
 void receiveAndForward() {
@@ -143,6 +158,9 @@ void decodeAndTransmit() {
   }
   // transmit the entire buffer
   radio.startTransmit(buf, len);
+
+  // start timeout timer
+  timestamp = now();
 }
 
 void transmitCleanUp() {
