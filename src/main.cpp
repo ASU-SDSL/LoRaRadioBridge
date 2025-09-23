@@ -27,8 +27,7 @@ int res = 0;
 void setup() {
   // the init state
   Serial.begin(115200);
-  while (!Serial)
-    ;
+  while (!Serial);
 
   initRadio();
 }
