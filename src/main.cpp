@@ -4,6 +4,12 @@
 #include "Arduino.h"
 #include "radio_interface.h"
 
+#define DEBUG 1
+#define debug_println(x) \
+  if (DEBUG) {           \
+    Serial.println(x);   \
+  }
+
 // states
 typedef enum : uint8_t {
   IDLE,
@@ -31,6 +37,7 @@ void loop() {
 
   switch (state) {
     case IDLE:
+      debug_println("IDLE");
       if (serial_input()) {
         next_state = DECODE;
       } else {
@@ -40,6 +47,7 @@ void loop() {
       break;
 
     case DETECTING:
+      debug_println("DETECTING");
       if (scan_timeout()) {
         next_state = IDLE;
       } else if (activity_detected()) {
@@ -49,6 +57,7 @@ void loop() {
       break;
 
     case RECEIVING:
+      debug_println("RECEIVING");
       if (receive_done()) {
         next_state = FORWARD;
       } else if (receive_timeout()) {
@@ -59,16 +68,19 @@ void loop() {
       break;
 
     case FORWARD:
+      debug_println("FORWARD");
       receiveAndForward();
       next_state = IDLE;
       break;
 
     case DECODE:
+      debug_println("DECODE");
       decodeAndTransmit();
       next_state = TRANSMITTING;
       break;
 
     case TRANSMITTING:
+      debug_println("TRANSMITTING");
       if (transmit_done()) {
         transmitCleanUp();
         next_state = ADAPT;
@@ -81,13 +93,14 @@ void loop() {
       break;
 
     case ADAPT:
+      debug_println("ADAPT");
       adaptRadio();
       next_state = IDLE;
       break;
 
     default:
-      Serial.print("Bad state: ");
-      Serial.println(state);
+      debug_println("Bad state: " + String(state) + "\nResetting to IDLE");
+      next_state = IDLE;
       break;
   }
 
