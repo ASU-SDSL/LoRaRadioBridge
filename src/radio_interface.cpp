@@ -11,6 +11,7 @@
 #include "radio_interface.h"
 
 #include <RadioLib.h>
+
 #include <vector>
 
 // constants and settings
@@ -137,13 +138,12 @@ void startReceive() {
 
 void receiveAndForward() {
   size_t len = radio.getPacketLength();
-  std::vector<uint8_t> buf(len); 
+  std::vector<uint8_t> buf(len);
   res = radio.readData(buf.data(), len);
 
   if (res == RADIOLIB_ERR_NONE) {
     Serial.write(buf.data(), len);
   }
-
 }
 
 #define SPACEPACKET_ENCODED_HEADER_SIZE 6
