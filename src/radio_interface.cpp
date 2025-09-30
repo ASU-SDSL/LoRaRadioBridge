@@ -44,10 +44,6 @@
 #define RADIO_SF_SAFE 10
 #define RADIO_CR_SAFE 5
 
-#define RADIO_BW 125.0
-#define RADIO_SF 9
-#define RADIO_CR 7
-
 // shared variables
 static RFM98 radio = new Module(RADIO_RFM_NSS_PIN, RADIO_RFM_DIO0_PIN,
                                 RADIO_RFM_NRST_PIN, RADIO_RFM_DIO1_PIN);
@@ -100,7 +96,7 @@ bool transmit_timeout() { return now() - timestamp > TRANSMIT_TIMEOUT_US; }
 
 // operations
 void initRadio() {
-  res = radio.begin(RADIO_FREQ, RADIO_BW, RADIO_SF, RADIO_CR,
+  res = radio.begin(RADIO_FREQ, RADIO_BW_SAFE, RADIO_SF_SAFE, RADIO_CR_SAFE,
                     RADIO_SYNC_WORD, RADIO_TRANSMIT_POWER, RADIO_PREAMBLE_LEN,
                     RADIO_RFM_GAIN);
 
