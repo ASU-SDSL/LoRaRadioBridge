@@ -164,30 +164,6 @@ void receiveAndForward() {
   }
 }
 
-void decodeAndTransmit() {
-  // decode - TODO: make this smarter
-  uint8_t buf[256];
-  size_t len = 0;
-
-  // while there are still bytes to send
-  while (Serial.available() > 0 && len < 256) {
-    // read them into the buffer
-    buf[len++] = Serial.read();
-  }
-
-  // TODO: add the isEncryptedCommand and encrypt method
-  if(isEncryptedCommand(buf)) {
-    encrypt();
-  }
-  else {
-    // transmit the entire buffer
-    radio.startTransmit(buf,len);
-  }
-
-  // start timeout timer
-  timestamp = now();
-}
-
 bool isEncryptedCommand(uint8_t buf[]) {
   
 }
@@ -195,11 +171,6 @@ bool isEncryptedCommand(uint8_t buf[]) {
 void encrypt(){
   // AES_CTR_xcrypt_buffer(struct AES_ctx* ctx, uint8_t* buf, uint32_t length)
   //AES_CTR_xcrypt_buffer();
-}
-
-void transmitCleanUp() {
-  // clean up needed after every transmit
-  radio.finishTransmit();
 }
 
 #define SPACEPACKET_ENCODED_HEADER_SIZE 6
