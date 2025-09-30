@@ -22,7 +22,7 @@
 #define RADIO_RFM_DIO1_PIN 3
 
 // Consistent radio settings:
-#define RADIO_FREQ 434.0
+#define RADIO_FREQ 437.400
 #define RADIO_SYNC_WORD 18
 #define RADIO_PREAMBLE_LEN 8
 #define RADIO_RFM_GAIN 0  // (auto)
@@ -130,8 +130,8 @@ void startActivityDetection() {
   res = radio.startChannelScan();
 
   if (res != RADIOLIB_ERR_NONE) {
-    Serial.print(F("radio.startChannelScan failed, code "));
-    Serial.println(res);
+    debug_print(F("radio.startChannelScan failed, code "));
+    debug_println(res);
     while (true)
       ;
   }
@@ -141,8 +141,8 @@ void startReceive() {
   res = radio.startReceive();
 
   if (res != RADIOLIB_ERR_NONE) {
-    Serial.print(F("radio.startReceive failed, code "));
-    Serial.println(res);
+    debug_print(F("radio.startReceive failed, code "));
+    debug_println(res);
     while (true)
       ;
   }

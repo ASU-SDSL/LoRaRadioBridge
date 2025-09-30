@@ -4,11 +4,7 @@
 #include "Arduino.h"
 #include "radio_interface.h"
 
-#define DEBUG 1
-#define debug_println(x) \
-  if (DEBUG) {           \
-    Serial.println(x);   \
-  }
+
 
 // states
 typedef enum : uint8_t {
