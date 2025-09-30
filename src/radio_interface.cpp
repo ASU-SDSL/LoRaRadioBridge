@@ -11,6 +11,7 @@
 #include "radio_interface.h"
 
 #include <RadioLib.h>
+#include <aes.c>
 
 #include <vector>
 
@@ -92,7 +93,7 @@ bool transmit_done() { return popOperationDoneFlag(); }
 
 bool receive_timeout() { return now() - timestamp > RECEIVE_TIMEOUT_US; }
 
-bool transmit_timeout() { return now() - timestamp > TRANSMIT_TIMEOUT_US; }
+bool transmit_timeout() { return now() - timestamp > TRANSMIT_TIMEOUT_US; } 
 
 // operations
 void initRadio() {
@@ -156,11 +157,27 @@ void decodeAndTransmit() {
     // read them into the buffer
     buf[len++] = Serial.read();
   }
-  // transmit the entire buffer
-  radio.startTransmit(buf, len);
+
+  // TODO: add the isEncryptedCommand and encrypt method
+  if(isEncryptedCommand(buf)) {
+    encrypt();
+  }
+  else {
+    // transmit the entire buffer
+    radio.startTransmit(buf,len);
+  }
 
   // start timeout timer
   timestamp = now();
+}
+
+bool isEncryptedCommand(uint8_t buf[]) {
+  
+}
+
+void encrypt(){
+  // AES_CTR_xcrypt_buffer(struct AES_ctx* ctx, uint8_t* buf, uint32_t length)
+  AES_CTR_xcrypt_buffer();
 }
 
 void transmitCleanUp() {
