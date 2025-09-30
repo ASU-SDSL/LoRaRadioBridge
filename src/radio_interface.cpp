@@ -30,6 +30,7 @@
 // update with 1W macro if needed (that may be a bs number bc RabioLib
 // implements the base module not the 1W version)
 #define RADIO_TRANSMIT_POWER 10
+#define COMMAND_SYNC_BYTES "\x35\x2E\xF8\x53"
 
 #define TRANSMIT_TIMEOUT_US (1000 * 1000)  // timeout after 1s (1,000,000 us)
 #define RECEIVE_TIMEOUT_US (1000 * 1000)   // timeout after 1s (1,000,000 us)
@@ -45,6 +46,10 @@
 #define RADIO_SF_SAFE 10
 #define RADIO_CR_SAFE 5
 
+// Mode setting in command packet
+#define RADIO_SAFE_MODE 0
+#define RADIO_FAST_MODE 1
+
 // shared variables
 static RFM98 radio = new Module(RADIO_RFM_NSS_PIN, RADIO_RFM_DIO0_PIN,
                                 RADIO_RFM_NRST_PIN, RADIO_RFM_DIO1_PIN);
@@ -53,6 +58,18 @@ static uint64_t timestamp = 0;
 
 // timing
 static uint64_t now() { return to_us_since_boot(get_absolute_time()); }
+
+// radio begin modes
+static int radio_begin_safe() {
+  return radio.begin(RADIO_FREQ, RADIO_BW_SAFE, RADIO_SF_SAFE, RADIO_CR_SAFE,
+                     RADIO_SYNC_WORD, RADIO_TRANSMIT_POWER, RADIO_PREAMBLE_LEN,
+                     RADIO_RFM_GAIN);
+}
+static int radio_begin_fast() {
+  return radio.begin(RADIO_FREQ, RADIO_BW_FAST, RADIO_SF_FAST, RADIO_CR_FAST,
+                     RADIO_SYNC_WORD, RADIO_TRANSMIT_POWER, RADIO_PREAMBLE_LEN,
+                     RADIO_RFM_GAIN);
+}
 
 // flags
 static volatile bool operation_done_flag = false;
@@ -177,7 +194,7 @@ bool isEncryptedCommand(uint8_t buf[]) {
 
 void encrypt(){
   // AES_CTR_xcrypt_buffer(struct AES_ctx* ctx, uint8_t* buf, uint32_t length)
-  AES_CTR_xcrypt_buffer();
+  //AES_CTR_xcrypt_buffer();
 }
 
 void transmitCleanUp() {
@@ -185,6 +202,119 @@ void transmitCleanUp() {
   radio.finishTransmit();
 }
 
+#define SPACEPACKET_ENCODED_HEADER_SIZE 6
+
+struct spacepacket_header {
+  uint8_t version;
+  bool type;
+  bool secondary_header_flag;
+  uint16_t apid;
+  uint8_t sequence_flag;
+  uint16_t packet_sequence_count;
+  uint16_t packet_length;
+} typedef spacepacket_header_t;
+
+/*
+    Decodes a byte buffer into a SpacePacket header struct
+    Argument encoded_buf must be at least 6 bytes large
+    Returns 0 on success, -1 on error
+ */
+static int decode_spacepacket_header(uint8_t* encoded_buf,
+                                     size_t encoded_buf_size,
+                                     spacepacket_header_t* header_out) {
+  // Sanity checks
+  if (encoded_buf == NULL || header_out == NULL ||
+      encoded_buf_size < SPACEPACKET_ENCODED_HEADER_SIZE) {
+    return -1;
+  }
+  // Decode header
+  header_out->version = (encoded_buf[0] >> 5) & 0x07;
+  header_out->type = (encoded_buf[0] >> 4) & 0x01;
+  header_out->secondary_header_flag = (encoded_buf[0] >> 3) & 0x01;
+  header_out->apid = ((encoded_buf[0] & 0x07) << 8) | encoded_buf[1];
+  header_out->sequence_flag = (encoded_buf[2] >> 6) & 0x01;
+  header_out->packet_sequence_count =
+      ((encoded_buf[2] & 0x3F) << 8) | encoded_buf[3];
+  header_out->packet_length = (encoded_buf[4] << 8) | encoded_buf[5];
+  return 0;
+}
+
+static spacepacket_header_t header;
+static uint8_t* packet;
+void decodeAndTransmit() {
+  // decode - receive a packet - TODO: make this smarter
+
+  packet = (uint8_t*)malloc(sizeof(uint8_t) * (4 + 6));
+  uint8_t index = 0;
+
+  // find sync bytes
+  while (true) {
+    uint8_t byte_in = Serial.read();
+
+    if (byte_in == COMMAND_SYNC_BYTES[index]) {
+      packet[index] = byte_in;
+      index++;
+    } else {
+      index = 0;
+    }
+
+    if (index >= (sizeof(COMMAND_SYNC_BYTES) - 2)) {  // - 2 for \0 and counting
+      break;
+    }
+  }
+
+  // receive spacepacket header (6 bytes)
+  for (int i = 0; i < SPACEPACKET_ENCODED_HEADER_SIZE; i++) {
+    packet[index] = Serial.read();
+    index++;
+  }
+
+  decode_spacepacket_header(packet + 4, SPACEPACKET_ENCODED_HEADER_SIZE,
+                            &header);
+  size_t full_len = header.packet_length + (sizeof(COMMAND_SYNC_BYTES) - 1) +
+                    SPACEPACKET_ENCODED_HEADER_SIZE;
+
+  // receive the rest of the packet
+  packet = (uint8_t*)realloc(packet, full_len);
+
+  while (index < full_len) {
+    packet[index] = Serial.read();
+    index++;
+  }
+
+  // transmit the entire buffer
+  radio.startTransmit(packet, full_len);
+
+  // start timeout timer
+  timestamp = now();
+}
+
+void transmitCleanUp() {
+  // clean up needed after every transmit
+  radio.finishTransmit();
+}
+
+#define RADIO_SET_MODE 103
+#define TOKEN_LENGTH 8U
+typedef struct __attribute__((__packed__)) {
+  uint8_t admin_token[TOKEN_LENGTH];
+  uint8_t radio_mode;
+} radio_set_mode_t;
+
 void adaptRadio() {
   // use with decode
+  if (header.apid == RADIO_SET_MODE) {
+    uint8_t* buf = packet + ((sizeof(COMMAND_SYNC_BYTES) - 1) +
+                             SPACEPACKET_ENCODED_HEADER_SIZE);
+    radio_set_mode_t* set_mode_args = (radio_set_mode_t*)buf;
+
+    if (set_mode_args->radio_mode == RADIO_FAST_MODE) {
+      radio_begin_fast();
+    } else {
+      radio_begin_safe();
+    }
+  }
+
+  // clean up from decode at the end
+  free(packet);
 }
