@@ -3,6 +3,17 @@
 
 #include "Arduino.h"
 
+// debug
+#define DEBUG 0
+#define debug_println(x) \
+  if (DEBUG) {           \
+    Serial.println(x);   \
+  }
+#define debug_print(x) \
+  if (DEBUG) {           \
+    Serial.print(x);   \
+  }
+
 // status checkers (can be functions or just flags set from interrupt)
 // they should clean up after they return the status
 /**

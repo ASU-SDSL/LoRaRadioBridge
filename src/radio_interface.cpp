@@ -44,6 +44,10 @@
 #define RADIO_SF_SAFE 10
 #define RADIO_CR_SAFE 5
 
+#define RADIO_BW 125.0
+#define RADIO_SF 9
+#define RADIO_CR 7
+
 // shared variables
 static RFM98 radio = new Module(RADIO_RFM_NSS_PIN, RADIO_RFM_DIO0_PIN,
                                 RADIO_RFM_NRST_PIN, RADIO_RFM_DIO1_PIN);
@@ -96,13 +100,13 @@ bool transmit_timeout() { return now() - timestamp > TRANSMIT_TIMEOUT_US; }
 
 // operations
 void initRadio() {
-  res = radio.begin(RADIO_FREQ, RADIO_BW_FAST, RADIO_SF_FAST, RADIO_CR_FAST,
+  res = radio.begin(RADIO_FREQ, RADIO_BW, RADIO_SF, RADIO_CR,
                     RADIO_SYNC_WORD, RADIO_TRANSMIT_POWER, RADIO_PREAMBLE_LEN,
                     RADIO_RFM_GAIN);
 
   if (res != RADIOLIB_ERR_NONE) {
-    Serial.print(F("radio.begin failed, code "));
-    Serial.println(res);
+    debug_print(F("radio.begin failed, code "));
+    debug_println(res);
     while (true)
       ;
   }
@@ -115,8 +119,8 @@ void startActivityDetection() {
   res = radio.startChannelScan();
 
   if (res != RADIOLIB_ERR_NONE) {
-    Serial.print(F("radio.startChannelScan failed, code "));
-    Serial.println(res);
+    debug_print(F("radio.startChannelScan failed, code "));
+    debug_println(res);
     while (true)
       ;
   }
@@ -126,8 +130,8 @@ void startReceive() {
   res = radio.startReceive();
 
   if (res != RADIOLIB_ERR_NONE) {
-    Serial.print(F("radio.startReceive failed, code "));
-    Serial.println(res);
+    debug_print(F("radio.startReceive failed, code "));
+    debug_println(res);
     while (true)
       ;
   }
