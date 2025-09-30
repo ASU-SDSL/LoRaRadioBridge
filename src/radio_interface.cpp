@@ -35,14 +35,12 @@
 
 // LoRa Modes:
 // fast mode (~4 kbps)
-#define RADIO_BW_FAST 62.5
+#define RADIO_BW 62.5
 #define RADIO_SF_FAST 6
-#define RADIO_CR_FAST 5
+#define RADIO_CR 5
 
 // safe mode (~400 bps)
-#define RADIO_BW_SAFE 62.5
 #define RADIO_SF_SAFE 10
-#define RADIO_CR_SAFE 5
 
 // shared variables
 static RFM98 radio = new Module(RADIO_RFM_NSS_PIN, RADIO_RFM_DIO0_PIN,
@@ -96,7 +94,7 @@ bool transmit_timeout() { return now() - timestamp > TRANSMIT_TIMEOUT_US; }
 
 // operations
 void initRadio() {
-  res = radio.begin(RADIO_FREQ, RADIO_BW_SAFE, RADIO_SF_SAFE, RADIO_CR_SAFE,
+  res = radio.begin(RADIO_FREQ, RADIO_BW, RADIO_SF_SAFE, RADIO_CR,
                     RADIO_SYNC_WORD, RADIO_TRANSMIT_POWER, RADIO_PREAMBLE_LEN,
                     RADIO_RFM_GAIN);
 
