@@ -36,7 +36,7 @@
 // LoRa Modes:
 // fast mode (~4 kbps)
 #define RADIO_BW 62.5
-#define RADIO_SF_FAST 6
+#define RADIO_SF_FAST 7
 #define RADIO_CR 5
 
 // safe mode (~400 bps)
