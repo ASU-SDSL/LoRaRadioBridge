@@ -221,13 +221,16 @@ bool isEncryptedCommand() {
 }
 
 void encrypt(uint8_t* buf){
-  /* TODO: add the aes library to lib as a submodule and exclude the files test.cpp in readme? remove it from platformio.
+  /* TODO: add the IV to the spacepacket
   */
 
-  uint32_t pck_length = (uint32_t)&(header.packet_length); // converting from uint16_t to uint32_t. should work fine
+  uint32_t pck_length = (uint32_t) header.packet_length; // converting from uint16_t to uint32_t. should work fine
 
   AES_init_ctx_iv(ctx, key, iv); // initialize the context calling
   AES_CTR_xcrypt_buffer(ctx, &(buf[SPACEPACKET_ENCODED_HEADER_SIZE]), pck_length); // encrypts the data field
+
+  uint8_t data_field_encrypted = 0x11; 
+  buf[SPACEPACKET_ENCODED_HEADER_SIZE] = data_field_encrypted + buf[SPACEPACKET_ENCODED_HEADER_SIZE]; 
 }
 
 /*
