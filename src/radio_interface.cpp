@@ -221,7 +221,7 @@ bool isEncryptedCommand() {
 }
 
 void encrypt(uint8_t* buf){
-  /* TODO: add the IV to the spacepacket
+  /* TODO: add a way to turn off encryption altogether (a toggle method?)
   */
 
   uint32_t pck_length = (uint32_t) header.packet_length; // converting from uint16_t to uint32_t. should work fine
