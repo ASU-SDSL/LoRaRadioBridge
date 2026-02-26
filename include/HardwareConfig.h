@@ -1,0 +1,28 @@
+#ifndef HARDWARE_CONFIG_H
+#define HARDWARE_CONFIG_H
+
+#define LNA_PIN 20
+#define LNA_ON 1
+#define LNA_OFF 0
+
+#define SWITCH_PIN 21
+#define SWITCH_ON 1
+#define SWITCH_OFF 0
+
+#define RADIO_RFM_CS_PIN 13
+#define RADIO_SX_CS_PIN 17
+
+#define SPI1_MOSI_PIN 15
+#define SPI1_MISO_PIN 12
+#define SPI1_SCK_PIN 14
+
+#define RADIO_RFM_RESET_PIN 9
+#define RADIO_RFM_DIO1_PIN 10
+#define RADIO_RFM_DIO0_PIN 11
+
+#define RADIO_SX_NRESET_PIN 26
+#define RADIO_SX_BUSY_PIN 22
+#define RADIO_SX_DIO1_PIN 27 
+
+
+#endif
