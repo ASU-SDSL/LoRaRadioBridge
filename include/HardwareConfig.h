@@ -20,7 +20,6 @@
 
 #define RADIO_SX_NRESET_PIN 26
 #define RADIO_SX_BUSY_PIN 22
-#define RADIO_SX_DIO1_PIN 27 
-
+#define RADIO_SX_DIO1_PIN 27
 
 #endif

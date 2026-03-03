@@ -12,38 +12,38 @@
 
 // include the necessary Pico libraries
 #include <pico/stdlib.h>
-#include "hardware/spi.h"
-#include "hardware/timer.h"
+
 #include <map>
 
-std::map<uint32_t, void(*)(void)> isrs;
-void picoGeneralISR(uint gpio, uint32_t event_mask){
-  (isrs[gpio])();
-}
+#include "hardware/spi.h"
+#include "hardware/timer.h"
 
-// create a new Raspberry Pi Pico hardware abstraction 
+std::map<uint32_t, void (*)(void)> isrs;
+void picoGeneralISR(uint gpio, uint32_t event_mask) { (isrs[gpio])(); }
+
+// create a new Raspberry Pi Pico hardware abstraction
 // layer using the Pico SDK
 // the HAL must inherit from the base RadioLibHal class
 // and implement all of its virtual methods
 class PicoHal : public RadioLibHal {
-public:
-  PicoHal(spi_inst_t *spiChannel, uint32_t misoPin, uint32_t mosiPin, uint32_t sckPin, uint32_t spiSpeed = 500 * 1000)
-    : RadioLibHal(GPIO_IN, GPIO_OUT, 0, 1, GPIO_IRQ_EDGE_RISE, GPIO_IRQ_EDGE_FALL),
-    _spiChannel(spiChannel),
-    _spiSpeed(spiSpeed),
-    _misoPin(misoPin),
-    _mosiPin(mosiPin),
-    _sckPin(sckPin) {
-    }
+ public:
+  PicoHal(spi_inst_t* spiChannel, uint32_t misoPin, uint32_t mosiPin,
+          uint32_t sckPin, uint32_t spiSpeed = 500 * 1000)
+      : RadioLibHal(GPIO_IN, GPIO_OUT, 0, 1, GPIO_IRQ_EDGE_RISE,
+                    GPIO_IRQ_EDGE_FALL),
+        _spiChannel(spiChannel),
+        _spiSpeed(spiSpeed),
+        _misoPin(misoPin),
+        _mosiPin(mosiPin),
+        _sckPin(sckPin) {}
 
   void init() override {
-    //stdio_init_all(); // as far as I can tell, enabling this unnecessarily (I think) takes up isr slots that are needed later  
+    // stdio_init_all(); // as far as I can tell, enabling this unnecessarily (I
+    // think) takes up isr slots that are needed later
     spiBegin();
   }
 
-  void term() override {
-    spiEnd();
-  }
+  void term() override { spiEnd(); }
 
   // GPIO-related methods (pinMode, digitalWrite etc.) should check
   // RADIOLIB_NC as an alias for non-connected pins
@@ -72,7 +72,8 @@ public:
     return gpio_get(pin);
   }
 
-  void attachInterrupt(uint32_t interruptNum, void (*interruptCb)(void), uint32_t mode) override {
+  void attachInterrupt(uint32_t interruptNum, void (*interruptCb)(void),
+                       uint32_t mode) override {
     if (interruptNum == RADIOLIB_NC) {
       return;
     }
@@ -80,8 +81,12 @@ public:
     // // wrapped = interruptCb;
     isrs[interruptNum] = interruptCb;
 
-    //gpio_set_irq_enabled_with_callback(interruptNum, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, true, picoGeneralISR);//(gpio_irq_callback_t)interruptCb);
-    gpio_set_irq_enabled_with_callback(interruptNum, mode, true, picoGeneralISR);//(gpio_irq_callback_t)interruptCb);
+    // gpio_set_irq_enabled_with_callback(interruptNum, GPIO_IRQ_EDGE_RISE |
+    // GPIO_IRQ_EDGE_FALL, true, picoGeneralISR); 
+    //(gpio_irq_callback_t)interruptCb);
+    gpio_set_irq_enabled_with_callback(
+        interruptNum, mode, true,
+        picoGeneralISR);  //(gpio_irq_callback_t)interruptCb);
   }
 
   void detachInterrupt(uint32_t interruptNum) override {
@@ -89,17 +94,14 @@ public:
       return;
     }
 
-    gpio_set_irq_enabled_with_callback(interruptNum, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, false, NULL);
+    gpio_set_irq_enabled_with_callback(
+        interruptNum, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, false, NULL);
     isrs.erase(interruptNum);
   }
 
-  void delay(unsigned long ms) override {
-    sleep_ms(ms);
-  }
+  void delay(unsigned long ms) override { sleep_ms(ms); }
 
-  void delayMicroseconds(unsigned long us) override {
-    sleep_us(us);
-  }
+  void delayMicroseconds(unsigned long us) override { sleep_us(us); }
 
   unsigned long millis() override {
     return to_ms_since_boot(get_absolute_time());
@@ -138,20 +140,17 @@ public:
 
   void spiBeginTransaction() {}
 
-  void spiTransfer(uint8_t *out, size_t len, uint8_t *in) {
+  void spiTransfer(uint8_t* out, size_t len, uint8_t* in) {
     spi_write_read_blocking(_spiChannel, out, in, len);
   }
 
   void spiEndTransaction() {}
 
-  void spiEnd() {
-    spi_deinit(_spiChannel);
-  }
+  void spiEnd() { spi_deinit(_spiChannel); }
 
-private:
-
+ private:
   // the HAL can contain any additional private members
-  spi_inst_t *_spiChannel;
+  spi_inst_t* _spiChannel;
   uint32_t _spiSpeed;
   uint32_t _misoPin;
   uint32_t _mosiPin;

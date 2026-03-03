@@ -3,8 +3,8 @@
 
 #include <Arduino.h>
 
-void mode_init(); 
-void mode_receive(); 
-void mode_transmit(); 
+void mode_init();
+void mode_receive();
+void mode_transmit();
 
 #endif
