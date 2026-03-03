@@ -1,20 +1,24 @@
 #include "modes.h"
 #include "HardwareConfig.h"
 
+#define SWITCHING_TIME_MS 50 
+
 void mode_init(){
-  pinMode(LNA_PIN, OUTPUT); 
   pinMode(SWITCH_PIN, OUTPUT); 
 
-  digitalWrite(LNA_PIN, LNA_OFF); 
   digitalWrite(SWITCH_PIN, SWITCH_OFF); 
 }
 
 void mode_receive(){
-  digitalWrite(LNA_PIN, LNA_ON);
+  // switch rf switch to lna
   digitalWrite(SWITCH_PIN, SWITCH_ON); 
+  // wait for it to switch
+  delay(SWITCHING_TIME_MS); // TODO: find exact time
 }
 
 void mode_transmit(){
-  digitalWrite(LNA_PIN, LNA_OFF); 
+  // switch rf switch to sink 
   digitalWrite(SWITCH_PIN, SWITCH_OFF); 
+  // wait for it to switch
+  delay(SWITCHING_TIME_MS); // TODO: find exact time 
 }

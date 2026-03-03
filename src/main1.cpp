@@ -13,8 +13,10 @@ void real_setup1(){
   queue_init(in_q, sizeof(msg_in_t), 20);
   queue_init(out_q, sizeof(msg_out_t), 20); 
 
-  Serial.begin(115200); 
-  while(!Serial); 
+  Serial.begin(115200);
+  while (!Serial) delay(100); 
+  delay(500); 
+  Serial.println("Setup1"); 
 
 }
 
@@ -29,7 +31,10 @@ void real_loop1(){
     while(Serial.available() > 0 && pos < MAX_PACKET_SIZE){
       msg.data[pos++] = Serial.read();
     }
+    msg.len = pos;
 
+    Serial.println("Received: "); 
+    Serial.write(msg.data, msg.len);
     queue_add_blocking(in_q, &msg); 
   }
 

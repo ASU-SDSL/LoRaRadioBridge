@@ -1,13 +1,11 @@
 #ifndef HARDWARE_CONFIG_H
 #define HARDWARE_CONFIG_H
 
-#define LNA_PIN 20
-#define LNA_ON 1
-#define LNA_OFF 0
+#define STATUS_PIN 20
 
 #define SWITCH_PIN 21
-#define SWITCH_ON 1
-#define SWITCH_OFF 0
+#define SWITCH_ON 0
+#define SWITCH_OFF 1
 
 #define RADIO_RFM_CS_PIN 13
 #define RADIO_SX_CS_PIN 17

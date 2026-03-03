@@ -4,6 +4,7 @@
 #include "HardwareConfig.h"
 #include "Globals.h"
 #include "modes.h"
+#include "PicoHal.h"
 
 #define RADIO_FREQ 437.400
 #define RADIO_BW 62.5
@@ -19,9 +20,10 @@
 #define RADIO_RFM_POWER 17  // to get 30dBm
 
 #define RECEIVE_TIMEOUT_MS 5000 
+#define TRANSMIT_TIMEOUT_MS 5000 
 
-RadioLibHal* txHal = new ArduinoHal(SPI);
-RadioLibHal* rxHal = new ArduinoHal(SPI1);
+PicoHal* txHal = new PicoHal(spi0, PICO_DEFAULT_SPI_TX_PIN, PICO_DEFAULT_SPI_RX_PIN, PICO_DEFAULT_SPI_SCK_PIN); 
+PicoHal* rxHal = new PicoHal(spi1, SPI1_MOSI_PIN, SPI1_MISO_PIN, SPI1_SCK_PIN);
 
 SX1268 radioTX = new Module(txHal, RADIO_SX_CS_PIN, RADIO_SX_DIO1_PIN,
                             RADIO_SX_NRESET_PIN, RADIO_SX_BUSY_PIN);
@@ -51,9 +53,11 @@ uint32_t op_start = 0;
 
 void setup() {
   // the init state
-  while (!Serial) sleep_ms(100); 
+  while (!Serial) delay(100); 
   delay(500); 
   Serial.println("Setup0"); 
+
+  pinMode(STATUS_PIN, OUTPUT);
 
   mode_init();
 
@@ -87,7 +91,7 @@ void setup() {
   radioRX.setDio0Action(radio_operation_done_RFM, GPIO_IRQ_EDGE_RISE); 
   radioRX.setDio1Action(radio_cad_detected_RFM, GPIO_IRQ_EDGE_RISE); 
 
-  // probably not needed - transmitTINGs should block anyways 
+  // probably not needed - transmissions should block anyways 
   radioTX.setDio1Action(radio_general_flag_SX); 
 
   // start CAD 
@@ -107,43 +111,101 @@ enum stage_t {
   RECEIVING
 }; 
 
+int16_t safe_startTransmit(const uint8_t* data, uint8_t len){
+  // handles switching delay 
+  mode_transmit(); 
+
+  return radioTX.startTransmit(data, len);
+}
+
 stage_t current_state = stage_t::CAD; 
 
 void loop() {
   // vars 
   msg_in_t msg_in;
   msg_out_t msg_out; 
-  
+
   switch(current_state){
     case CAD:
+      if(cad_detected_RFM){ 
+        cad_detected_RFM = false; // clear flag
+        operation_done_RFM = false; 
 
-      if(operation_done_RFM){ 
-        // cad operation done, repeat 
-        current_state = stage_t::CAD;
-      } 
-      else if(cad_detected_RFM){ 
         // cad detected
         current_state = stage_t::RECEIVING; 
 
         // start receive 
         radioRX.startReceive(); 
         op_start = millis(); 
-      }
+      } else if(operation_done_RFM){ 
+        operation_done_RFM = false; // clear flag
+
+        if(queue_is_empty(in_q) == false){
+          // have packet to send 
+          // receive packet from core 1 
+          queue_remove_blocking(in_q, &msg_in);
+          // start to transmit
+          Serial.println("Starting transmit: ");
+          Serial.write(msg_in.data, msg_in.len);
+
+          safe_startTransmit(msg_in.data, msg_in.len);
+          op_start = millis();
+          current_state = stage_t::TRANSMITTING;
+        } else {
+          // cad operation done, repeat 
+          radioRX.startChannelScan();
+          current_state = stage_t::CAD;
+        }
+      }  
+      digitalWrite(STATUS_PIN, LOW);
 
       break; 
     case TRANSMITTING: 
+      if(millis() - op_start > TRANSMIT_TIMEOUT_MS){
+        // timeout 
+        digitalWrite(STATUS_PIN, HIGH);
+        radioTX.finishTransmit(); 
+
+        // return to CAD
+        mode_receive(); 
+        radioRX.startChannelScan();  
+        current_state = stage_t::CAD;
+      } else if(general_flag_SX){
+        general_flag_SX = false; // clear flag 
+
+        radioTX.finishTransmit();
+
+        // return to CAD
+        mode_receive(); 
+        radioRX.startChannelScan();
+        current_state = stage_t::CAD;
+      }
 
       break; 
     case RECEIVING:
       if(millis() - op_start > RECEIVE_TIMEOUT_MS){
         // timeout 
+        digitalWrite(STATUS_PIN, HIGH);
         radioRX.finishReceive(); 
+
         // return to CAD 
+        radioRX.startChannelScan();
         current_state = stage_t::CAD;
       } else if(operation_done_RFM){
+        operation_done_RFM = false; // clear flag
+
         // received a packet 
         msg_out.len = radioRX.getPacketLength(); 
         radioRX.readData(msg_out.data, msg_out.len); 
+
+        radioRX.finishReceive();
+
+        // send to core1 
+        queue_add_blocking(out_q, &msg_out);
+
+        // return to CAD
+        radioRX.startChannelScan();
+        current_state = stage_t::CAD;
       }
 
       break; 
