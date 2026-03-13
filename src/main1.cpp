@@ -17,7 +17,6 @@ void real_setup1() {
   Serial.begin(115200);
   while (!Serial) delay(100);
   delay(500);
-  Serial.println("Setup1");
 }
 
 static msg_in_t msg;
@@ -33,8 +32,6 @@ void real_loop1() {
     }
     msg.len = pos;
 
-    Serial.println("Received: ");
-    Serial.write(msg.data, msg.len);
     queue_add_blocking(in_q, &msg);
   }
 

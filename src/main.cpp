@@ -49,7 +49,6 @@ void setup() {
   // the init state
   while (!Serial) delay(100);
   delay(500);
-  Serial.println("Setup0");
 
   pinMode(STATUS_PIN, OUTPUT);
 
@@ -96,11 +95,11 @@ void setup() {
     Serial.printf("Error on CAD start %d\n", res);
   }
 
-  Serial.println("Begin0");
 }
 
 enum stage_t { CAD, TRANSMITTING, RECEIVING };
 
+// only calls this, not startTransmit directly
 int16_t safe_startTransmit(const uint8_t* data, uint8_t len) {
   // handles switching delay
   mode_transmit();
@@ -127,16 +126,13 @@ void loop() {
         // start receive
         radioRX.startReceive();
         op_start = millis();
-      } else if (operation_done_RFM) {
+      } else if (operation_done_RFM) { // CAD is done, didn't see any activity
         operation_done_RFM = false;  // clear flag
 
         if (queue_is_empty(in_q) == false) {
           // have packet to send
           // receive packet from core 1
           queue_remove_blocking(in_q, &msg_in);
-          // start to transmit
-          Serial.println("Starting transmit: ");
-          Serial.write(msg_in.data, msg_in.len);
 
           safe_startTransmit(msg_in.data, msg_in.len);
           op_start = millis();
@@ -147,13 +143,11 @@ void loop() {
           current_state = stage_t::CAD;
         }
       }
-      digitalWrite(STATUS_PIN, LOW);
 
       break;
     case TRANSMITTING:
       if (millis() - op_start > TRANSMIT_TIMEOUT_MS) {
         // timeout
-        digitalWrite(STATUS_PIN, HIGH);
         radioTX.finishTransmit();
 
         // return to CAD
@@ -175,7 +169,6 @@ void loop() {
     case RECEIVING:
       if (millis() - op_start > RECEIVE_TIMEOUT_MS) {
         // timeout
-        digitalWrite(STATUS_PIN, HIGH);
         radioRX.finishReceive();
 
         // return to CAD

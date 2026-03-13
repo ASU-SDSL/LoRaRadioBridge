@@ -1,7 +1,9 @@
 #ifndef HARDWARE_CONFIG_H
 #define HARDWARE_CONFIG_H
 
-#define STATUS_PIN 20
+#define PTT_PIN 20
+#define PTT_ON 1 
+#define PTT_OFF 0 
 
 #define SWITCH_PIN 21
 #define SWITCH_ON 0
