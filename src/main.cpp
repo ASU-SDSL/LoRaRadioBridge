@@ -22,6 +22,7 @@
 #define RECEIVE_TIMEOUT_MS 5000
 #define TRANSMIT_TIMEOUT_MS 5000
 
+
 PicoHal* txHal = new PicoHal(spi0, PICO_DEFAULT_SPI_TX_PIN,
                              PICO_DEFAULT_SPI_RX_PIN, PICO_DEFAULT_SPI_SCK_PIN);
 PicoHal* rxHal = new PicoHal(spi1, SPI1_MOSI_PIN, SPI1_MISO_PIN, SPI1_SCK_PIN);
@@ -49,8 +50,6 @@ void setup() {
   // the init state
   while (!Serial) delay(100);
   delay(500);
-
-  pinMode(STATUS_PIN, OUTPUT);
 
   mode_init();
 
@@ -182,6 +181,7 @@ void loop() {
         radioRX.readData(msg_out.data, msg_out.len);
 
         radioRX.finishReceive();
+        // Serial.printf("RSSI %f SNR %f\n", radioRX.getRSSI(), radioRX.getSNR());
 
         // send to core1
         queue_add_blocking(out_q, &msg_out);
