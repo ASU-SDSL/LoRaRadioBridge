@@ -43,7 +43,6 @@ services:
     privileged: true
     read_only: true
     device_cgroup_rules:
-      - 'c 81:* rwm'
       - 'c 189:* rwm'
       - 'c 166:* rwm'
     environment:
@@ -72,5 +71,5 @@ services:
       - '/dev/bus/usb:/dev/bus/usb'
       - '/dev/serial/by-id:/dev/serial/by-id'
       - '/dev:/dev'
-      - '/dev/ttyACM1:/dev/ttyACM1'
+      
     restart: 'unless-stopped'
