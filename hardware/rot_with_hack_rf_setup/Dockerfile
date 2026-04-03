@@ -62,6 +62,7 @@ RUN echo "[global]" > /etc/pip.conf \
 		--pip-args="--only-binary :all: -c /usr/local/src/satnogs-client/constraints.txt" \
 		/usr/local/src/satnogs-client
 
+# get hackrf dependencies 
 RUN apt-get update && apt-get install -y \
 	hackrf \
 	libhackrf-dev \
