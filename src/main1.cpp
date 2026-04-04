@@ -32,14 +32,18 @@ void real_loop1() {
     }
     msg.len = pos;
 
+    Serial.println("Got msg from serial");
     queue_add_blocking(in_q, &msg);
+    Serial.println("forwarded"); 
   }
 
   // write to serial
   if (queue_is_empty(out_q) == false) {
     msg_out_t msg;
 
+    Serial.println("Got msg to send");
     queue_remove_blocking(out_q, &msg);
+    Serial.println("sent"); 
 
     Serial.write(msg.data, msg.len);
   }

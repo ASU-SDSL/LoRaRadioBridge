@@ -1,11 +1,13 @@
 #ifndef HARDWARE_CONFIG_H
 #define HARDWARE_CONFIG_H
 
+#define PTT_INDICATOR_PIN 21
 #define PTT_PIN 20
 #define PTT_ON 1 
 #define PTT_OFF 0 
 
-#define SWITCH_PIN 21
+#define SWITCH_INDICATOR_PIN 1
+#define SWITCH_PIN 0
 #define SWITCH_ON 0
 #define SWITCH_OFF 1
 

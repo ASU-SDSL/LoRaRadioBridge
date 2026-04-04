@@ -14,30 +14,42 @@
 void mode_init() {
   pinMode(SWITCH_PIN, OUTPUT);
   pinMode(PTT_PIN, OUTPUT); 
+  pinMode(SWITCH_INDICATOR_PIN, OUTPUT);
+  pinMode(PTT_INDICATOR_PIN, OUTPUT);
 
   // default to receive mode
   mode_receive();
 }
 
+static void set_ptt(int status) {
+  digitalWrite(PTT_PIN, status);
+  digitalWrite(PTT_INDICATOR_PIN, status);
+}
+
+static void set_switch(int status) {
+  digitalWrite(SWITCH_PIN, status);
+  digitalWrite(SWITCH_INDICATOR_PIN, status); 
+}
+
 void mode_receive() {
   // wait for signal through safely 
   // ptt off
-  digitalWrite(PTT_PIN, PTT_OFF); 
+  set_ptt(PTT_OFF); 
   // wait for ptt to ramp down
   delay(PTT_TIME_DOWN_MS);
   // switch rf switch to lna
-  digitalWrite(SWITCH_PIN, SWITCH_ON);
+  set_switch(SWITCH_ON);
   // wait for it to switch
   delay(SWITCHING_TIME_MS); 
 }
 
 void mode_transmit() {
   // switch rf switch to sink
-  digitalWrite(SWITCH_PIN, SWITCH_OFF);
+  set_switch(SWITCH_OFF);
   // wait for it to switch
   delay(SWITCHING_TIME_MS); 
   // ptt on
-  digitalWrite(PTT_PIN, PTT_ON); 
+  set_ptt(PTT_ON); 
   // wait for ptt to ramp up?
   delay(PTT_TIME_UP_MS); 
 }

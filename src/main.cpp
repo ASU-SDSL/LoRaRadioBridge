@@ -16,8 +16,8 @@
 #define RADIO_RFM_GAIN 0
 #define RADIO_SX_TXCO_VOLT 0.0
 #define RADIO_SX_USE_REG_LDO false
-#define RADIO_SX_POWER 22   // to get 30dBm
-#define RADIO_RFM_POWER 17  // to get 30dBm
+#define RADIO_SX_POWER 11 // to be safe with preamp - gets ~24dBm, a little less   22   // to get 30dBm
+#define RADIO_RFM_POWER 10  // to get 30dBm
 
 #define RECEIVE_TIMEOUT_MS 5000
 #define TRANSMIT_TIMEOUT_MS 5000
@@ -50,6 +50,8 @@ void setup() {
   // the init state
   while (!Serial) delay(100);
   delay(500);
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, HIGH);
 
   mode_init();
 
@@ -108,7 +110,9 @@ int16_t safe_startTransmit(const uint8_t* data, uint8_t len) {
 
 stage_t current_state = stage_t::CAD;
 
+
 void loop() {
+
   // vars
   msg_in_t msg_in;
   msg_out_t msg_out;
