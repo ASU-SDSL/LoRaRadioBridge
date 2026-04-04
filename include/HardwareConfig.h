@@ -26,4 +26,6 @@
 #define RADIO_SX_BUSY_PIN 22
 #define RADIO_SX_DIO1_PIN 27
 
+#define ERROR_LED_PIN 2
+
 #endif

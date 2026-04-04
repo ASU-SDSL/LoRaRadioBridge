@@ -1,6 +1,7 @@
 #include <Arduino.h>
 
 #include "Globals.h"
+#include "HardwareConfig.h"
 
 #define COMMAND_SYNC_BYTES "\x35\x2E\xF8\x53"
 
@@ -11,6 +12,8 @@ queue_t* in_q = &real_in_q;
 queue_t* out_q = &real_out_q;
 
 void real_setup1() {
+  pinMode(ERROR_LED_PIN, OUTPUT);
+  digitalWrite(ERROR_LED_PIN, LOW);
   queue_init(in_q, sizeof(msg_in_t), 20);
   queue_init(out_q, sizeof(msg_out_t), 20);
 
@@ -33,7 +36,12 @@ void real_loop1() {
     msg.len = pos;
 
     Serial.println("Got msg from serial");
-    queue_add_blocking(in_q, &msg);
+    if(queue_try_add(in_q, &msg) == false){
+      digitalWrite(ERROR_LED_PIN, HIGH); 
+      delay(500); 
+      digitalWrite(ERROR_LED_PIN, LOW);
+    }
+    // queue_add_blocking(in_q, &msg);
     Serial.println("forwarded"); 
   }
 
@@ -42,7 +50,12 @@ void real_loop1() {
     msg_out_t msg;
 
     Serial.println("Got msg to send");
-    queue_remove_blocking(out_q, &msg);
+    if(queue_try_remove(out_q, &msg) == false){
+      digitalWrite(ERROR_LED_PIN, HIGH); 
+      delay(500);
+      digitalWrite(ERROR_LED_PIN, LOW);
+    }
+    // queue_remove_blocking(out_q, &msg);
     Serial.println("sent"); 
 
     Serial.write(msg.data, msg.len);
