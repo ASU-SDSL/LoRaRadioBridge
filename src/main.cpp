@@ -1,104 +1,208 @@
-
+#include <Arduino.h>
 #include <RadioLib.h>
 
-#include "Arduino.h"
-#include "radio_interface.h"
+#include "Globals.h"
+#include "HardwareConfig.h"
+#include "PicoHal.h"
+#include "modes.h"
+
+#define RADIO_FREQ 437.400
+#define RADIO_BW 62.5
+#define RADIO_SF 10
+#define RADIO_CR 5
+#define RADIO_SYNC_WORD 18
+#define RADIO_PREAMBLE_LEN 8
+
+#define RADIO_RFM_GAIN 0
+#define RADIO_SX_TXCO_VOLT 0.0
+#define RADIO_SX_USE_REG_LDO false
+#define RADIO_SX_POWER 11 // to be safe with preamp - gets ~24dBm, a little less   22   // to get 30dBm
+#define RADIO_RFM_POWER 10  // to get 30dBm
+
+#define RECEIVE_TIMEOUT_MS 5000
+#define TRANSMIT_TIMEOUT_MS 5000
 
 
+PicoHal* txHal = new PicoHal(spi0, PICO_DEFAULT_SPI_TX_PIN,
+                             PICO_DEFAULT_SPI_RX_PIN, PICO_DEFAULT_SPI_SCK_PIN);
+PicoHal* rxHal = new PicoHal(spi1, SPI1_MOSI_PIN, SPI1_MISO_PIN, SPI1_SCK_PIN);
 
-// states
-typedef enum : uint8_t {
-  IDLE,
-  DETECTING,
-  DECODE,
-  TRANSMITTING,
-  ADAPT,
-  RECEIVING,
-  FORWARD
-} sm_t;
+SX1268 radioTX = new Module(txHal, RADIO_SX_CS_PIN, RADIO_SX_DIO1_PIN,
+                            RADIO_SX_NRESET_PIN, RADIO_SX_BUSY_PIN);
+RFM98 radioRX = new Module(rxHal, RADIO_RFM_CS_PIN, RADIO_RFM_DIO0_PIN,
+                           RADIO_RFM_RESET_PIN, RADIO_RFM_DIO1_PIN);
 
-sm_t state = IDLE;
-int res = 0;
+// isrs
+volatile bool operation_done_RFM = false;
+volatile bool cad_detected_RFM = false;
+volatile bool general_flag_SX = false;
+
+void radio_operation_done_RFM() { operation_done_RFM = true; }
+
+void radio_cad_detected_RFM() { cad_detected_RFM = true; }
+
+void radio_general_flag_SX() { general_flag_SX = true; }
+// end isrs
+
+uint32_t op_start = 0;
 
 void setup() {
   // the init state
-  Serial.begin(115200);
-  while (!Serial);
+  while (!Serial) delay(100);
+  delay(500);
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, HIGH);
 
-  initRadio();
-}
+  mode_init();
 
-void loop() {
-  sm_t next_state = state;
+  // radio setup
+  // spi setup
+  SPI.begin();
 
-  switch (state) {
-    case IDLE:
-      debug_println("IDLE");
-      if (serial_input()) {
-        next_state = DECODE;
-      } else {
-        startActivityDetection();
-        next_state = DETECTING;
-      }
-      break;
+  SPI1.setMISO(SPI1_MISO_PIN);
+  SPI1.setMOSI(SPI1_MOSI_PIN);
+  SPI1.setSCK(SPI1_SCK_PIN);
+  SPI1.begin();
 
-    case DETECTING:
-      debug_println("DETECTING");
-      if (scan_timeout()) {
-        next_state = IDLE;
-      } else if (activity_detected()) {
-        startReceive();
-        next_state = RECEIVING;
-      }
-      break;
+  // module begin
+  // tx
+  int res = radioTX.begin(RADIO_FREQ, RADIO_BW, RADIO_SF, RADIO_CR,
+                          RADIO_SYNC_WORD, RADIO_SX_POWER, RADIO_PREAMBLE_LEN,
+                          RADIO_SX_TXCO_VOLT, RADIO_SX_USE_REG_LDO);
+  if (res != RADIOLIB_ERR_NONE) {
+    Serial.printf("Error on TX (SX): %d\n", res);
+  }
+  radioTX.standby();
 
-    case RECEIVING:
-      debug_println("RECEIVING");
-      if (receive_done()) {
-        next_state = FORWARD;
-      } else if (receive_timeout()) {
-        next_state = IDLE;
-      } else {
-        next_state = RECEIVING;
-      }
-      break;
-
-    case FORWARD:
-      debug_println("FORWARD");
-      receiveAndForward();
-      next_state = IDLE;
-      break;
-
-    case DECODE:
-      debug_println("DECODE");
-      decodeAndTransmit();
-      next_state = TRANSMITTING;
-      break;
-
-    case TRANSMITTING:
-      debug_println("TRANSMITTING");
-      if (transmit_done()) {
-        transmitCleanUp();
-        next_state = ADAPT;
-      } else if (transmit_timeout()) {
-        transmitCleanUp();
-        next_state = IDLE;
-      } else {
-        next_state = TRANSMITTING;
-      }
-      break;
-
-    case ADAPT:
-      debug_println("ADAPT");
-      adaptRadio();
-      next_state = IDLE;
-      break;
-
-    default:
-      debug_println("Bad state: " + String(state) + "\nResetting to IDLE");
-      next_state = IDLE;
-      break;
+  // rx
+  res = radioRX.begin(RADIO_FREQ, RADIO_BW, RADIO_SF, RADIO_CR, RADIO_SYNC_WORD,
+                      RADIO_RFM_POWER, RADIO_PREAMBLE_LEN, RADIO_RFM_GAIN);
+  if (res != RADIOLIB_ERR_NONE) {
+    Serial.printf("Error on RX (RFM): %d\n", res);
   }
 
-  state = next_state;
+  // setup interrupts
+  radioRX.setDio0Action(radio_operation_done_RFM, GPIO_IRQ_EDGE_RISE);
+  radioRX.setDio1Action(radio_cad_detected_RFM, GPIO_IRQ_EDGE_RISE);
+
+  // probably not needed - transmissions should block anyways
+  radioTX.setDio1Action(radio_general_flag_SX);
+
+  // start CAD
+  res = radioRX.startChannelScan();
+  op_start = millis();
+
+  if (res != RADIOLIB_ERR_NONE) {
+    Serial.printf("Error on CAD start %d\n", res);
+  }
+
 }
+
+enum stage_t { CAD, TRANSMITTING, RECEIVING };
+
+// only calls this, not startTransmit directly
+int16_t safe_startTransmit(const uint8_t* data, uint8_t len) {
+  // handles switching delay
+  mode_transmit();
+
+  return radioTX.startTransmit(data, len);
+}
+
+stage_t current_state = stage_t::CAD;
+
+
+void loop() {
+
+  // vars
+  msg_in_t msg_in;
+  msg_out_t msg_out;
+
+  switch (current_state) {
+    case CAD:
+      if (cad_detected_RFM) {
+        cad_detected_RFM = false;  // clear flag
+        operation_done_RFM = false;
+
+        // cad detected
+        current_state = stage_t::RECEIVING;
+
+        // start receive
+        radioRX.startReceive();
+        op_start = millis();
+      } else if (operation_done_RFM) { // CAD is done, didn't see any activity
+        operation_done_RFM = false;  // clear flag
+
+        // have packet to send
+        // receive packet from core 1
+        if (queue_try_remove(in_q, &msg_in)) {
+          safe_startTransmit(msg_in.data, msg_in.len);
+          op_start = millis();
+          current_state = stage_t::TRANSMITTING;
+        } else {
+          // cad operation done, repeat
+          radioRX.startChannelScan();
+          current_state = stage_t::CAD;
+        }
+      }
+
+      break;
+    case TRANSMITTING:
+      if (millis() - op_start > TRANSMIT_TIMEOUT_MS) {
+        // timeout
+        radioTX.finishTransmit();
+
+        // return to CAD
+        mode_receive();
+        radioRX.startChannelScan();
+        current_state = stage_t::CAD;
+      } else if (general_flag_SX) {
+        general_flag_SX = false;  // clear flag
+
+        radioTX.finishTransmit();
+
+        // return to CAD
+        mode_receive();
+        radioRX.startChannelScan();
+        current_state = stage_t::CAD;
+      }
+
+      break;
+    case RECEIVING:
+      if (millis() - op_start > RECEIVE_TIMEOUT_MS) {
+        // timeout
+        radioRX.finishReceive();
+
+        // return to CAD
+        radioRX.startChannelScan();
+        current_state = stage_t::CAD;
+      } else if (operation_done_RFM) {
+        operation_done_RFM = false;  // clear flag
+
+        // received a packet
+        msg_out.len = radioRX.getPacketLength();
+        radioRX.readData(msg_out.data, msg_out.len);
+
+        radioRX.finishReceive();
+        // Serial.printf("RSSI %f SNR %f\n", radioRX.getRSSI(), radioRX.getSNR());
+
+        // send to core1
+        queue_add_blocking(out_q, &msg_out);
+
+        // return to CAD
+        radioRX.startChannelScan();
+        current_state = stage_t::CAD;
+      }
+
+      break;
+    default:
+      Serial.println("Error - bad state");
+  }
+}
+
+// Core 1 stuff --------------------------------------------
+void real_setup1();
+void real_loop1();
+
+void setup1() { real_setup1(); }
+
+void loop1() { real_loop1(); }
