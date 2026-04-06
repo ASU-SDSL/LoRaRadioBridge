@@ -132,11 +132,9 @@ void loop() {
       } else if (operation_done_RFM) { // CAD is done, didn't see any activity
         operation_done_RFM = false;  // clear flag
 
-        if (queue_is_empty(in_q) == false) {
-          // have packet to send
-          // receive packet from core 1
-          queue_remove_blocking(in_q, &msg_in);
-
+        // have packet to send
+        // receive packet from core 1
+        if (queue_try_remove(in_q, &msg_in)) {
           safe_startTransmit(msg_in.data, msg_in.len);
           op_start = millis();
           current_state = stage_t::TRANSMITTING;
