@@ -1,5 +1,5 @@
-# LoRaRadioBridge
-A radio bridge from a LoRa module setup to serial communication for the Arizona State University Interplanetary Lab Ground Station at PSH
+# LoRa Radio Ground Station
+A radio bridge for a LoRa module setup to serial communication and other components for the Arizona State University Interplanetary Lab Ground Station at PSH
 
 ## Includes 
 TX/RX LoRa modules 
