@@ -6,8 +6,10 @@
 
 #include "pico/util/queue.h"
 
-extern SX1268 radioTX;
-extern RFM98 radioRX;
+#define LOGGER_ENABLE 0
+#define log(fmt, ...) \
+  if (LOGGER_ENABLE)  \
+    Serial.printf("[Core %d]" fmt, get_core_num(), ##__VA_ARGS__);
 
 #define MAX_PACKET_SIZE 256
 

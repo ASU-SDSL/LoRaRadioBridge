@@ -16,35 +16,51 @@
 #define RADIO_RFM_GAIN 0
 #define RADIO_SX_TXCO_VOLT 0.0
 #define RADIO_SX_USE_REG_LDO false
-#define RADIO_SX_POWER 11 // to be safe with preamp - gets ~24dBm, a little less   22   // to get 30dBm
+#define RADIO_SX_POWER \
+  11  // to be safe with preamp - gets ~24dBm, a little less   22   // to get
+      // 30dBm
 #define RADIO_RFM_POWER 10  // to get 30dBm
 
 #define RECEIVE_TIMEOUT_MS 5000
 #define TRANSMIT_TIMEOUT_MS 5000
 
+static PicoHal* txHal =
+    new PicoHal(spi0, PICO_DEFAULT_SPI_TX_PIN, PICO_DEFAULT_SPI_RX_PIN,
+                PICO_DEFAULT_SPI_SCK_PIN);
+static PicoHal* rxHal =
+    new PicoHal(spi1, SPI1_MOSI_PIN, SPI1_MISO_PIN, SPI1_SCK_PIN);
 
-PicoHal* txHal = new PicoHal(spi0, PICO_DEFAULT_SPI_TX_PIN,
-                             PICO_DEFAULT_SPI_RX_PIN, PICO_DEFAULT_SPI_SCK_PIN);
-PicoHal* rxHal = new PicoHal(spi1, SPI1_MOSI_PIN, SPI1_MISO_PIN, SPI1_SCK_PIN);
-
-SX1268 radioTX = new Module(txHal, RADIO_SX_CS_PIN, RADIO_SX_DIO1_PIN,
-                            RADIO_SX_NRESET_PIN, RADIO_SX_BUSY_PIN);
-RFM98 radioRX = new Module(rxHal, RADIO_RFM_CS_PIN, RADIO_RFM_DIO0_PIN,
-                           RADIO_RFM_RESET_PIN, RADIO_RFM_DIO1_PIN);
+static SX1268 radioTX = new Module(txHal, RADIO_SX_CS_PIN, RADIO_SX_DIO1_PIN,
+                                   RADIO_SX_NRESET_PIN, RADIO_SX_BUSY_PIN);
+static RFM98 radioRX = new Module(rxHal, RADIO_RFM_CS_PIN, RADIO_RFM_DIO0_PIN,
+                                  RADIO_RFM_RESET_PIN, RADIO_RFM_DIO1_PIN);
 
 // isrs
-volatile bool operation_done_RFM = false;
-volatile bool cad_detected_RFM = false;
-volatile bool general_flag_SX = false;
+static volatile bool operation_done_RFM = false;
+static volatile bool cad_detected_RFM = false;
+static volatile bool general_flag_SX = false;
 
-void radio_operation_done_RFM() { operation_done_RFM = true; }
+static void radio_operation_done_RFM() { operation_done_RFM = true; }
 
-void radio_cad_detected_RFM() { cad_detected_RFM = true; }
+static void radio_cad_detected_RFM() { cad_detected_RFM = true; }
 
-void radio_general_flag_SX() { general_flag_SX = true; }
+static void radio_general_flag_SX() { general_flag_SX = true; }
 // end isrs
 
-uint32_t op_start = 0;
+// operation tracking
+static uint32_t op_start = 0;
+
+enum stage_t { CAD, TRANSMITTING, RECEIVING };
+
+// only calls this, not startTransmit directly
+static int16_t safe_startTransmit(const uint8_t* data, uint8_t len) {
+  // handles switching delay
+  mode_transmit();
+
+  return radioTX.startTransmit(data, len);
+}
+
+static stage_t current_state = stage_t::CAD;
 
 void setup() {
   // the init state
@@ -95,24 +111,9 @@ void setup() {
   if (res != RADIOLIB_ERR_NONE) {
     Serial.printf("Error on CAD start %d\n", res);
   }
-
 }
-
-enum stage_t { CAD, TRANSMITTING, RECEIVING };
-
-// only calls this, not startTransmit directly
-int16_t safe_startTransmit(const uint8_t* data, uint8_t len) {
-  // handles switching delay
-  mode_transmit();
-
-  return radioTX.startTransmit(data, len);
-}
-
-stage_t current_state = stage_t::CAD;
-
 
 void loop() {
-
   // vars
   msg_in_t msg_in;
   msg_out_t msg_out;
@@ -127,14 +128,16 @@ void loop() {
         current_state = stage_t::RECEIVING;
 
         // start receive
+        log("Starting receive\n");
         radioRX.startReceive();
         op_start = millis();
-      } else if (operation_done_RFM) { // CAD is done, didn't see any activity
-        operation_done_RFM = false;  // clear flag
+      } else if (operation_done_RFM) {  // CAD is done, didn't see any activity
+        operation_done_RFM = false;     // clear flag
 
         // have packet to send
         // receive packet from core 1
         if (queue_try_remove(in_q, &msg_in)) {
+          log("starting transmit\n");
           safe_startTransmit(msg_in.data, msg_in.len);
           op_start = millis();
           current_state = stage_t::TRANSMITTING;
@@ -149,6 +152,7 @@ void loop() {
     case TRANSMITTING:
       if (millis() - op_start > TRANSMIT_TIMEOUT_MS) {
         // timeout
+        log("Timeout on tx\n");
         radioTX.finishTransmit();
 
         // return to CAD
@@ -156,6 +160,7 @@ void loop() {
         radioRX.startChannelScan();
         current_state = stage_t::CAD;
       } else if (general_flag_SX) {
+        log("transmit done\n");
         general_flag_SX = false;  // clear flag
 
         radioTX.finishTransmit();
@@ -170,12 +175,14 @@ void loop() {
     case RECEIVING:
       if (millis() - op_start > RECEIVE_TIMEOUT_MS) {
         // timeout
+        log("Timeout on rx\n");
         radioRX.finishReceive();
 
         // return to CAD
         radioRX.startChannelScan();
         current_state = stage_t::CAD;
       } else if (operation_done_RFM) {
+        log("receive done\n"); 
         operation_done_RFM = false;  // clear flag
 
         // received a packet
@@ -183,7 +190,8 @@ void loop() {
         radioRX.readData(msg_out.data, msg_out.len);
 
         radioRX.finishReceive();
-        // Serial.printf("RSSI %f SNR %f\n", radioRX.getRSSI(), radioRX.getSNR());
+        // Serial.printf("RSSI %f SNR %f\n", radioRX.getRSSI(),
+        // radioRX.getSNR());
 
         // send to core1
         queue_add_blocking(out_q, &msg_out);

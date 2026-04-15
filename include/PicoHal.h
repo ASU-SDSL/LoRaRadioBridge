@@ -18,8 +18,8 @@
 #include "hardware/spi.h"
 #include "hardware/timer.h"
 
-std::map<uint32_t, void (*)(void)> isrs;
-void picoGeneralISR(uint gpio, uint32_t event_mask) { (isrs[gpio])(); }
+static std::map<uint32_t, void (*)(void)> isrs;
+static void picoGeneralISR(uint gpio, uint32_t event_mask) { (isrs[gpio])(); }
 
 // create a new Raspberry Pi Pico hardware abstraction
 // layer using the Pico SDK
@@ -82,7 +82,7 @@ class PicoHal : public RadioLibHal {
     isrs[interruptNum] = interruptCb;
 
     // gpio_set_irq_enabled_with_callback(interruptNum, GPIO_IRQ_EDGE_RISE |
-    // GPIO_IRQ_EDGE_FALL, true, picoGeneralISR); 
+    // GPIO_IRQ_EDGE_FALL, true, picoGeneralISR);
     //(gpio_irq_callback_t)interruptCb);
     gpio_set_irq_enabled_with_callback(
         interruptNum, mode, true,

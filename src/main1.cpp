@@ -5,9 +5,11 @@
 
 #define COMMAND_SYNC_BYTES "\x35\x2E\xF8\x53"
 
+// read queue definitions
 static queue_t real_in_q;
 static queue_t real_out_q;
 
+// expose pointers to use nicely with function calls
 queue_t* in_q = &real_in_q;
 queue_t* out_q = &real_out_q;
 
@@ -35,29 +37,31 @@ void real_loop1() {
     }
     msg.len = pos;
 
-    Serial.println("Got msg from serial");
-    if(queue_try_add(in_q, &msg) == false){
-      digitalWrite(ERROR_LED_PIN, HIGH); 
-      delay(500); 
+    log("Got msg from serial\n");
+    if (queue_try_add(in_q, &msg) == false) {
+      digitalWrite(ERROR_LED_PIN, HIGH);
+      delay(500);
       digitalWrite(ERROR_LED_PIN, LOW);
     }
     // queue_add_blocking(in_q, &msg);
-    Serial.println("forwarded"); 
+    log("forwarded\n");
   }
 
   // write to serial
   if (queue_is_empty(out_q) == false) {
     msg_out_t msg;
 
-    Serial.println("Got msg to send");
-    if(queue_try_remove(out_q, &msg) == false){
-      digitalWrite(ERROR_LED_PIN, HIGH); 
+    log("Got msg to send\n");
+    if (queue_try_remove(out_q, &msg) == false) {
+      digitalWrite(ERROR_LED_PIN, HIGH);
       delay(500);
       digitalWrite(ERROR_LED_PIN, LOW);
     }
     // queue_remove_blocking(out_q, &msg);
-    Serial.println("sent"); 
+    log("sending\n");
 
     Serial.write(msg.data, msg.len);
+    
+    log("sent\n");
   }
 }
