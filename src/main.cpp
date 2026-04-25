@@ -25,10 +25,10 @@
 #define TRANSMIT_TIMEOUT_MS 5000
 
 static PicoHal* txHal =
-    new PicoHal(spi0, PICO_DEFAULT_SPI_TX_PIN, PICO_DEFAULT_SPI_RX_PIN,
+    new PicoHal(SPI_BUS_TX, PICO_DEFAULT_SPI_TX_PIN, PICO_DEFAULT_SPI_RX_PIN,
                 PICO_DEFAULT_SPI_SCK_PIN);
 static PicoHal* rxHal =
-    new PicoHal(spi1, SPI1_MOSI_PIN, SPI1_MISO_PIN, SPI1_SCK_PIN);
+    new PicoHal(SPI_BUS_RX, SPI1_MOSI_PIN, SPI1_MISO_PIN, SPI1_SCK_PIN);
 
 static SX1268 radioTX = new Module(txHal, RADIO_SX_CS_PIN, RADIO_SX_DIO1_PIN,
                                    RADIO_SX_NRESET_PIN, RADIO_SX_BUSY_PIN);
