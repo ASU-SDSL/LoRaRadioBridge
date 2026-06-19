@@ -25,6 +25,8 @@
 #define RECEIVE_TIMEOUT_MS 5000
 #define TRANSMIT_TIMEOUT_MS 5000
 
+#define WATCHDOG_INTERVAL 8000
+
 static PicoHal* txHal =
     new PicoHal(SPI_BUS_TX, PICO_DEFAULT_SPI_TX_PIN, PICO_DEFAULT_SPI_RX_PIN,
                 PICO_DEFAULT_SPI_SCK_PIN);
@@ -111,7 +113,7 @@ void setup() {
     Serial.printf("Error on CAD start %d\n", res);
   }
 
-  watchdog_enable(5000, true);
+  watchdog_enable(WATCHDOG_INTERVAL, true);
 }
 
 void loop() {
