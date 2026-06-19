@@ -4,8 +4,8 @@
 #include "Globals.h"
 #include "HardwareConfig.h"
 #include "PicoHal.h"
-#include "modes.h"
 #include "hardware/watchdog.h"
+#include "modes.h"
 
 #define RADIO_FREQ 437.400
 #define RADIO_BW 62.5
@@ -121,7 +121,7 @@ void loop() {
   msg_in_t msg_in;
   msg_out_t msg_out;
 
-  watchdog_update(); 
+  watchdog_update();
 
   switch (current_state) {
     case CAD:
@@ -187,7 +187,7 @@ void loop() {
         radioRX.startChannelScan();
         current_state = stage_t::CAD;
       } else if (operation_done_RFM) {
-        log("receive done\n"); 
+        log("receive done\n");
         operation_done_RFM = false;  // clear flag
 
         // received a packet
