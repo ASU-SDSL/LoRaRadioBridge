@@ -5,6 +5,7 @@
 #include "HardwareConfig.h"
 #include "PicoHal.h"
 #include "modes.h"
+#include "hardware/watchdog.h"
 
 #define RADIO_FREQ 437.400
 #define RADIO_BW 62.5
@@ -66,8 +67,6 @@ void setup() {
   // the init state
   while (!Serial) delay(100);
   delay(500);
-  pinMode(LED_BUILTIN, OUTPUT);
-  digitalWrite(LED_BUILTIN, HIGH);
 
   mode_init();
 
@@ -111,12 +110,16 @@ void setup() {
   if (res != RADIOLIB_ERR_NONE) {
     Serial.printf("Error on CAD start %d\n", res);
   }
+
+  watchdog_enable(5000, true);
 }
 
 void loop() {
   // vars
   msg_in_t msg_in;
   msg_out_t msg_out;
+
+  watchdog_update(); 
 
   switch (current_state) {
     case CAD:

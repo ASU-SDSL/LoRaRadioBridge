@@ -13,6 +13,9 @@ static queue_t real_out_q;
 queue_t* in_q = &real_in_q;
 queue_t* out_q = &real_out_q;
 
+static unsigned long last_toggle = 0;  // for blinking LED
+static int toggle_val = 0; 
+
 void real_setup1() {
   pinMode(ERROR_LED_PIN, OUTPUT);
   digitalWrite(ERROR_LED_PIN, LOW);
@@ -22,14 +25,23 @@ void real_setup1() {
   Serial.begin(115200);
   while (!Serial) delay(100);
   delay(500);
+
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, HIGH);
 }
 
 static msg_in_t msg;
 
 void real_loop1() {
+  if(millis() - last_toggle > 1000) {
+    toggle_val = !toggle_val; 
+    digitalWrite(LED_BUILTIN, toggle_val);
+    last_toggle = millis();  
+  }
+
   // read from serial
   // make sure we have at least a sync (-1 for null term)
-  if (Serial.available() > sizeof(COMMAND_SYNC_BYTES) - 1) {
+  if (Serial.available() > sizeof(COMMAND_SYNC_BYTES) - 1) {    
     uint8_t pos = 0;
 
     while (Serial.available() > 0 && pos < MAX_PACKET_SIZE) {
